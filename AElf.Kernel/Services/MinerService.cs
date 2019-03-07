@@ -74,12 +74,12 @@ namespace AElf.Kernel.Services
                 stopwatch.Stop();
                 Logger.LogInformation($"[Performance]-GenerateBlock duration:{stopwatch.ElapsedMilliseconds}");
 
-                stopwatch.Start();
+                stopwatch.Restart();
                 var transactions = await GenerateSystemTransactions(previousBlockHash, previousBlockHeight);
                 stopwatch.Stop();
                 Logger.LogInformation($"[Performance]-GenerateSystemTransactions duration:{stopwatch.ElapsedMilliseconds}");
 
-                stopwatch.Start();
+                stopwatch.Restart();
                 var executableTransactionSet = await _txHub.GetExecutableTransactionSetAsync();
                 var pending = new List<Transaction>();
                 if (executableTransactionSet.PreviousBlockHash == previousBlockHash)
@@ -96,7 +96,7 @@ namespace AElf.Kernel.Services
                 Logger.LogInformation($"[Performance]-GetExecutableTransactionSetAsync duration:{stopwatch.ElapsedMilliseconds}");
 
 
-                stopwatch.Start();
+                stopwatch.Restart();
                 using (var cts = new CancellationTokenSource())
                 {
                     cts.CancelAfter(time - DateTime.UtcNow);
@@ -106,7 +106,7 @@ namespace AElf.Kernel.Services
                 stopwatch.Stop();
                 Logger.LogInformation($"[Performance]-ExecuteBlockAsync duration:{stopwatch.ElapsedMilliseconds}");
 
-                stopwatch.Stop();
+                stopwatch0.Stop();
                 Logger.LogInformation($"Generated {{ hash: {block.BlockHashToHex}, " +
                                       $"height: {block.Header.Height}, " +
                                       $"previous: {block.Header.PreviousBlockHash}, " +

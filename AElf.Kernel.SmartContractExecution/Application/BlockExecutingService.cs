@@ -71,7 +71,7 @@ namespace AElf.Kernel.SmartContractExecution.Application
             stopwatch.Stop();
             Logger.LogInformation($"[Performance]-ExecuteAsync-nonCancellable duration: {stopwatch.ElapsedMilliseconds}");
 
-            stopwatch.Start();
+            stopwatch.Restart();
             var cancellableReturnSets =
                 await _executingService.ExecuteAsync(blockHeader, cancellable, cancellationToken);
             stopwatch.Stop();
@@ -99,7 +99,7 @@ namespace AElf.Kernel.SmartContractExecution.Application
                 nonCancellable.Concat(cancellable.Where(x => executed.Contains(x.GetHash()))).ToList();
             var merkleTreeRootOfWorldState = ComputeHash(GetDeterministicByteArrays(blockStateSet));
 
-            stopwatch.Start();
+            stopwatch.Restart();
             var block = await _blockGenerationService.FillBlockAfterExecutionAsync(blockHeader, allExecutedTransactions,
                 merkleTreeRootOfWorldState);
             stopwatch.Stop();
@@ -107,7 +107,7 @@ namespace AElf.Kernel.SmartContractExecution.Application
 
             blockStateSet.BlockHash = blockHeader.GetHash();
 
-            stopwatch.Start();
+            stopwatch.Restart();
             await _blockchainStateManager.SetBlockStateSetAsync(blockStateSet);
             stopwatch.Stop();
             Logger.LogInformation($"[Performance]-SetBlockStateSetAsync duration: {stopwatch.ElapsedMilliseconds}");
