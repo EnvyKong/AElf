@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
@@ -10,6 +11,8 @@ using AElf.Kernel.Blockchain.Application;
 using AElf.Kernel.Blockchain.Domain;
 using AElf.Kernel.SmartContract.Domain;
 using AElf.Kernel.SmartContractExecution.Domain;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Volo.Abp.DependencyInjection;
 
 namespace AElf.Kernel.SmartContractExecution.Application
@@ -20,14 +23,17 @@ namespace AElf.Kernel.SmartContractExecution.Application
         private readonly IBlockManager _blockManager;
         private readonly IBlockchainStateManager _blockchainStateManager;
         private readonly IBlockGenerationService _blockGenerationService;
+        public ILogger<BlockExecutingService> Logger { get; set; }
         
         public BlockExecutingService(ITransactionExecutingService executingService, IBlockManager blockManager,
             IBlockchainStateManager blockchainStateManager, IBlockGenerationService blockGenerationService)
         {
+            Logger = NullLogger<BlockExecutingService>.Instance;
             _executingService = executingService;
             _blockManager = blockManager;
             _blockchainStateManager = blockchainStateManager;
             _blockGenerationService = blockGenerationService;
+
         }
 
         public async Task<Block> ExecuteBlockAsync(BlockHeader blockHeader,
@@ -57,10 +63,19 @@ namespace AElf.Kernel.SmartContractExecution.Application
                 BlockHeight = blockHeader.Height,
                 PreviousHash = blockHeader.PreviousBlockHash
             };
+            var stopwatch = new Stopwatch();
+
+            stopwatch.Start();
             var nonCancellableReturnSets =
                 await _executingService.ExecuteAsync(blockHeader, nonCancellable, CancellationToken.None);
+            stopwatch.Stop();
+            Logger.LogInformation($"[Performance]-ExecuteAsync-nonCancellable duration: {stopwatch.ElapsedMilliseconds}");
+
+            stopwatch.Start();
             var cancellableReturnSets =
                 await _executingService.ExecuteAsync(blockHeader, cancellable, cancellationToken);
+            stopwatch.Stop();
+            Logger.LogInformation($"[Performance]-ExecuteAsync-cancellable duration: {stopwatch.ElapsedMilliseconds}");
 
             foreach (var returnSet in nonCancellableReturnSets)
             {
@@ -79,16 +94,23 @@ namespace AElf.Kernel.SmartContractExecution.Application
             }
 
             // TODO: Insert deferredTransactions to TxPool
-
             var executed = new HashSet<Hash>(cancellableReturnSets.Select(x => x.TransactionId));
             var allExecutedTransactions =
                 nonCancellable.Concat(cancellable.Where(x => executed.Contains(x.GetHash()))).ToList();
             var merkleTreeRootOfWorldState = ComputeHash(GetDeterministicByteArrays(blockStateSet));
+
+            stopwatch.Start();
             var block = await _blockGenerationService.FillBlockAfterExecutionAsync(blockHeader, allExecutedTransactions,
                 merkleTreeRootOfWorldState);
+            stopwatch.Stop();
+            Logger.LogInformation($"[Performance]-FillBlockAfterExecutionAsync duration: {stopwatch.ElapsedMilliseconds}");
 
             blockStateSet.BlockHash = blockHeader.GetHash();
+
+            stopwatch.Start();
             await _blockchainStateManager.SetBlockStateSetAsync(blockStateSet);
+            stopwatch.Stop();
+            Logger.LogInformation($"[Performance]-SetBlockStateSetAsync duration: {stopwatch.ElapsedMilliseconds}");
 
             return block;
         }
